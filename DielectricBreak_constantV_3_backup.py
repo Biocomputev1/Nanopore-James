@@ -19,7 +19,7 @@ print()
 stamp = time.strftime("%d-%m-%Y")
 
 try:
-   os.mkdir(stamp)
+#    os.mkdir(stamp)
    print (stamp, 'Directory created')
 except FileExistsError:
    print (stamp, 'Directory already exists')
