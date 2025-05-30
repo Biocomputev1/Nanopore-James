@@ -11,7 +11,6 @@ import os
 import winsound
 import serial
 import matplotlib.pyplot as plt
-import pyvisa
 
 print()
 print("BIOCOMPUTE NANOPORE FAB - Constant Voltage Model")
@@ -40,7 +39,7 @@ def _plot():
     plt.xlim(0, )
     plt.xlabel('time (s)')
     plt.ylabel('Currrent (nA)')
-    figure_out='wafer_'+ wafer + '_'+ 'chip'+ str(chip) + '_' + voltage +'V_'+ stamp+'.png'
+    figure_out='wafer_'+ wafer + '_'+ 'chip'+ str(chip) + '_' + stamp+'.png'
     plt.savefig(figure_out)
     plt.show()
     shutil.copy(figure_out, stamp)
@@ -58,11 +57,25 @@ def _read_print():
     print(dt, ',',data, flush = True)
     return dt,data
 
+def _shutdown(): #to do after end of experiment
+    ser_out.write(b'0')# close circuit
+    ser_in.reset_input_buffer()#Flush input buffer, discarding 
+                                        #all it’s contents.
+    ser_in.reset_output_buffer()#Clear output buffer, aborting the
+    ser_in.close()                   #current output and discarding 
+    ser_out.close()        
+    _plot()
+    
+    shutil.move(outfile, stamp) #move file to date directory
+    
+    print(outfile)
+    winsound.Beep(500, 5000)
+
 #intializing the COM ports
 
 print()
 print("Intializing COM ports.......")
-
+#Arduino connection
 try:
     ser_out = serial.Serial('COM4', 115200, timeout=0.1)
     print(ser_out.readline().decode('ascii').strip())  # Read response from the arduino if successfully connected there will be a response from the arduino begin function
@@ -76,43 +89,43 @@ try:
 except serial.SerialException as e:
     print("Serial error:", e)
 
-rm = pyvisa.ResourceManager()
-print("VISA Resources found: ",rm.list_resources())
+ser_out.write(b'0') # close the circuit
 
-ps = rm.open_resource(resource_name = 'USB0::0x2EC7::0x9200::800889011797710062::INSTR')
-ps.timeout = 1000
-ps.write_termination = '\n'
-ps.read_termination = '\n'
+#INPUTS
 
-ps.write("*CLS")
-print("Connnected to:", ps.query("*IDN").strip())
-print("Initial error state:", ps.query("SYST:ERR?").strip())
+print()
+print('Check cables. Connect Arduino to PC. This Relay is closed at startup.')
+print('Acquisition rate of 200 Hz')
+wafer = input('wafer name: ')
+chip = int(input('chip n°: '))
 
-current_limit = float(input("Please to Set the Current Limit: "))
-overVoltageProtection = float(input("Please to Set the Voltage for Over Voltage Protection: "))
-overCurrentProtection = float(input("Please to Set the Current for Over Current Protection: "))
-voltage = float(input("Please to Set the Target Voltage (Constant V mode): "))
+outfile = 'wafer_'+ wafer + '_'+ 'chip'+ str(chip) +'_'+  stamp +'.dat'
 
-ps.write("OUTP OFF")
-ps.write("SOUR: VOLT 0")
-ps.write(f"SOUR:CURR {current_limit}")
-ps.write(f"OVP {overVoltageProtection}")
-ps.write(f"OCP {overCurrentProtection}")
-ps.write("OUTP ON")
-print("Output configured and enabled")
+print('File name: ', outfile)
+print()
+print('....press CRTL+C to BREAK experiment.') 
+begin = input('press ENTER key to begin in 5 sec. Relay will open the circuit.')
 
-print("Setting the Target Voltage")
-try:
-    ps.write(f"SOUR:VOLT {voltage}")
-    time.sleep(0.2)
-    err = ps.query("SYST:ERR?").strip()
-    if not err.startswith("0"):
-        print(f"Voltage {voltage} V set with warning : {err}")
-    else:
-        print(f"Voltage set to {voltage} V")
-except Exception as e:
-    print(f"Error Setting {voltage}V : {e}")
+ser_out.write(b'1')# open circuit to start 
+tCurrent = time.perf_counter()# timer - start reference time
 
-print("Setting Up Voltage is done")
-
-
+while time.perf_counter() <= tCurrent :  #time with no treshold
+    dt, data=_read_print()
+    _save_file()
+        
+while True:
+    try:
+        dt, data=_read_print()
+        _save_file()
+    
+        if (time.perf_counter() >= tCurrent+600):
+            #shutdown if current theshold is reached or after 500 seconds
+            _shutdown()
+            print('The End')        
+            break
+    except ValueError:
+        continue #skip error value
+    except:
+        _shutdown()
+        print('Keyboard Interrupt!')
+        break
