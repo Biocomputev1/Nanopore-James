@@ -23,3 +23,5 @@ try:
 except serial.SerialException as e:
     print("Serial error:", e)
 
+
+

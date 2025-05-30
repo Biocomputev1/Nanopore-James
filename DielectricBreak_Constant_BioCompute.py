@@ -98,6 +98,7 @@ print('Check cables. Connect Arduino to PC. This Relay is closed at startup.')
 print('Acquisition rate of 200 Hz')
 wafer = input('wafer name: ')
 chip = int(input('chip n°: '))
+tresh = float(input('Current threshold (A): '))
 
 outfile = 'wafer_'+ wafer + '_'+ 'chip'+ str(chip) +'_'+  stamp +'.dat'
 
@@ -118,7 +119,7 @@ while True:
         dt, data=_read_print()
         _save_file()
     
-        if (time.perf_counter() >= tCurrent+600):
+        if(float(data) >= tresh) or (time.perf_counter() >= tCurrent+600):
             #shutdown if current theshold is reached or after 500 seconds
             _shutdown()
             print('The End')        
