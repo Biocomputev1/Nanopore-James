@@ -27,22 +27,31 @@ except FileExistsError:
 
 def _plot():
     plt.rcParams['figure.figsize'] = [13,7]
-    x,y = [],[]
-    for line in open(outfile,'r'):
-        values = [float(s) for s in line.split(',')]
-        x.append(values[0])
-        y.append(values[1]*1E9)
+    x, y = [], []
+    try:
+        with open(outfile, 'r') as f:
+            for line in f:
+                values = [float(s) for s in line.strip().split(',')]
+                x.append(values[0])
+                y.append(values[1] * 1E9)
+    except Exception as e:
+        print(f"Error reading {outfile}: {e}")
+        return
 
-    plt.plot(x,y,'r',lw=1)
+    if not x:
+        print("No data to plot.")
+        return
+
+    plt.plot(x, y, 'r', lw=1)
     plt.title(outfile)
-    plt.grid(which='both', axis='both')
-    plt.xlim(0, )
-    plt.xlabel('time (s)')
-    plt.ylabel('Currrent (nA)')
-    figure_out='wafer_'+ wafer + '_'+ 'chip'+ str(chip) + '_' + stamp+'.png'
+    plt.grid(True)
+    plt.xlabel('Time (s)')
+    plt.ylabel('Current (nA)')
+    figure_out = f'wafer_{wafer}_chip{chip}_{stamp}.png'
     plt.savefig(figure_out)
     plt.show()
     shutil.copy(figure_out, stamp)
+
 
 def _save_file():
     with open(outfile, 'a') as f:
@@ -53,6 +62,7 @@ def _save_file():
 def _read_print():
     dt = round(time.perf_counter()-tCurrent,5)
     data = ser_in.readline().rstrip().decode('utf-8')
+    print(f"Raw data: '{data}'")
     ser_in.flush()
     print(dt, ',',data, flush = True)
     return dt,data
@@ -77,14 +87,14 @@ print()
 print("Intializing COM ports.......")
 #Arduino connection
 try:
-    ser_out = serial.Serial('COM4', 115200, timeout=0.1)
+    ser_out = serial.Serial('COM4', 230400, timeout=0.1)
     print(ser_out.readline().decode('ascii').strip())  # Read response from the arduino if successfully connected there will be a response from the arduino begin function
     print("Aruino Connected Successfully :)")
 except serial.SerialException as e:
     print("Serial error:", e)
 #Current Ranger input 
 try:
-    ser_in = serial.Serial('COM5', 115200, timeout=1)
+    ser_in = serial.Serial('COM5', 230400, timeout=1)
     print("Current RangerConnected successfully :)")
 except serial.SerialException as e:
     print("Serial error:", e)
@@ -110,7 +120,7 @@ begin = input('press ENTER key to begin in 5 sec. Relay will open the circuit.')
 ser_out.write(b'1')# open circuit to start 
 tCurrent = time.perf_counter()# timer - start reference time
 
-while time.perf_counter() <= tCurrent :  #time with no treshold
+while time.perf_counter() <= tCurrent + 5 :  #time with no treshold
     dt, data=_read_print()
     _save_file()
         

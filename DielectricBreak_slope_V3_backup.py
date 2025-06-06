@@ -39,7 +39,7 @@ except FileExistsError:
 
 def _sendV(app_voltage):
     voltage_com = 'VOLT'+str(app_voltage).zfill(3)+'\r'
-    power_s.write(voltage_com.encode('ascii'))
+   # power_s.write(voltage_com.encode('ascii'))
 
 
 def _read_print():  # function to read and print data current
@@ -62,7 +62,7 @@ def _shutdown():  # to do after end of experiment
     ser_out.write(b'0')  # close circuit
 
     #print(power_s.write('VOLT008\r'.encode('ascii')))  # Set Voltage to zero
-    power_s.write('VOLT008\r'.encode('ascii'))  # Set Voltage to zero
+   # power_s.write('VOLT008\r'.encode('ascii'))  # Set Voltage to zero
 
     # acquire data +1 seconds after relay off
 
@@ -84,7 +84,7 @@ def _shutdown():  # to do after end of experiment
     ser_in.reset_output_buffer()  # Clear output buffer, aborting the
     ser_in.close()  # current output and discarding
     # all that is in the buffer.
-    power_s.close()
+   # power_s.close()
 
     print('shutdown')
 
@@ -179,7 +179,7 @@ def _plot():  # function to make and save plots at the end
 print()
 print()
 print('initializing COM ports....')
-#
+#1
 # INPUT-CURRENT RANGER
 #
 #cr_com='COM'+str(int(cr_com_n))
@@ -187,21 +187,21 @@ print('initializing COM ports....')
 #ps_com='COM'+str(int(ps_com_n))
 #
 #
-ser_in = serial.Serial('COM6', 230400, timeout=0.1)
+ser_in = serial.Serial('COM5', 230400, timeout=0.1)
 #
 # OUTPUT TO ARDUINO RELAY
-ser_out = serial.Serial('COM8', 230400, timeout=0.1)  # COM4
+ser_out = serial.Serial('COM4', 230400, timeout=0.1)  # COM4
 #
 # POWER SUPPLY SOURCE
 #
-power_s = serial.Serial('COM3', 9600, timeout=0.1)
+#power_s = serial.Serial('COM3', 9600, timeout=0.1)
 
-power_s.write('GMOD\r'.encode('ascii'))  # INFO
-print(power_s.readline().decode('ascii'))
-power_s.write('VOLT008\r'.encode('ascii'))  # voltage zero
-print(power_s.readline().decode('ascii'))
-power_s.write('CURR003\r'.encode('ascii'))  # Set MAX current
-print(power_s.readline().decode('ascii'))
+#power_s.write('GMOD\r'.encode('ascii'))  # INFO
+#print(power_s.readline().decode('ascii'))
+#power_s.write('VOLT008\r'.encode('ascii'))  # voltage zero
+#print(power_s.readline().decode('ascii'))
+#power_s.write('CURR003\r'.encode('ascii'))  # Set MAX current
+#print(power_s.readline().decode('ascii'))
 
 
 # Initial INPUTS
@@ -255,7 +255,7 @@ ser_out.write(b'1')  # open circuit to start
 for app_voltage in np.arange(10, start_voltage+2, 2):
     _sendV(app_voltage)
     print(app_voltage/10, ser_in.readline().rstrip().decode('utf-8'))
-    power_s.readline().decode('ascii')
+   # power_s.readline().decode('ascii')
 
 
 tCurrent = time.perf_counter()  # timer - start reference time

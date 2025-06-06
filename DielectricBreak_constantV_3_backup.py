@@ -73,9 +73,9 @@ def _shutdown(): #to do after end of experiment
     ser_in.close()                   #current output and discarding 
     ser_out.close()                    #all that is in the buffer.
     
-    power_s.write('VOLT008\r'.encode('ascii'))# 
-    power_s.readline().decode('ascii')
-    power_s.close()
+    #power_s.write('VOLT008\r'.encode('ascii'))# 
+    #power_s.readline().decode('ascii')
+    #power_s.close()
     
     _plot()
     
@@ -98,21 +98,21 @@ print('initializing COM ports....')
 #ps_com='COM'+str(int(ps_com_n))
 #
 #
-ser_in = serial.Serial('COM6', 230400, timeout=0.1)
+ser_in = serial.Serial('COM5', 230400, timeout=0.1)
 #
 # OUTPUT TO ARDUINO RELAY
 ser_out = serial.Serial('COM4', 230400, timeout=0.1)  # COM4
 #
 # POWER SUPPLY SOURCE
 #
-power_s = serial.Serial('COM3', 9600, timeout=0.1)
+#power_s = serial.Serial('COM3', 9600, timeout=0.1)
 
-power_s.write('GMOD\r'.encode('ascii'))  # INFO
-print(power_s.readline().decode('ascii'))
-power_s.write('VOLT008\r'.encode('ascii'))  # voltage zero
-print(power_s.readline().decode('ascii'))
-power_s.write('CURR003\r'.encode('ascii'))  # Set MAX current
-print(power_s.readline().decode('ascii'))
+#power_s.write('GMOD\r'.encode('ascii'))  # INFO
+#print(power_s.readline().decode('ascii'))
+#power_s.write('VOLT008\r'.encode('ascii'))  # voltage zero
+#print(power_s.readline().decode('ascii'))
+#power_s.write('CURR003\r'.encode('ascii'))  # Set MAX current
+#print(power_s.readline().decode('ascii'))
 
 ser_out.write(b'0')  # close circuit
 
@@ -138,8 +138,8 @@ print()
 print('....press CRTL+C to BREAK experiment.') 
 begin = input('press ENTER key to begin in 5 sec. Relay will open the circuit.')
 
-power_s.write(voltage_com.encode('ascii')) #Set conditioning voltage
-print(power_s.readline().decode('ascii')) #wait for reply
+#power_s.write(voltage_com.encode('ascii')) #Set conditioning voltage
+#print(power_s.readline().decode('ascii')) #wait for reply
 
 Twait = time.perf_counter()# timer
 
