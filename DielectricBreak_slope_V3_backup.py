@@ -43,11 +43,32 @@ def _sendV(app_voltage):
 
 
 def _read_print():  # function to read and print data current
-    data = ser_in.readline().rstrip().decode('utf-8')
-    ser_in.flush()
-    dt = round(time.perf_counter()-tCurrent, 4)  # current time variable
-    print(dt, ' , ', app_voltage/10, ' , ', data, flush=True)
-    return dt, data  # send data to main program
+    try:
+        if not ser_in.is_open:
+            print("Error: Serial input port is not open.")
+            return None, None
+
+        raw_line = ser_in.readline()
+        if not raw_line:
+            print("Warning: No data read from serial.")
+            return None, None
+
+        data = raw_line.rstrip().decode('utf-8').strip()
+
+        if data.lower() == 'shutdown':
+            print("Shutdown signal received.")
+            return None, 'shutdown'
+
+        ser_in.flush()
+        dt = round(time.perf_counter() - tCurrent, 4)
+        print(dt, ' , ', app_voltage / 10, ' , ', data, flush=True)
+
+        return dt, data
+
+    except Exception as e:
+        print(f"Exception in _read_print(): {e}")
+        return None, None
+
 
 
 def _save_file():  # append data to file
@@ -58,45 +79,67 @@ def _save_file():  # append data to file
 
 
 def _shutdown():  # to do after end of experiment
+    print("Shutdown initiated...")
 
-    ser_out.write(b'0')  # close circuit
+    try:
+        if ser_out.is_open:
+            ser_out.write(b'0')  # Close circuit
+        else:
+            print("Warning: Serial output port is not open.")
+    except Exception as e:
+        print(f"Error writing to ser_out: {e}")
 
-    #print(power_s.write('VOLT008\r'.encode('ascii')))  # Set Voltage to zero
-   # power_s.write('VOLT008\r'.encode('ascii'))  # Set Voltage to zero
-
-    # acquire data +1 seconds after relay off
-
-    stime = time.perf_counter()  # timer - start a reference time
+    # acquire data for +1 second after relay is off
+    stime = time.perf_counter()
     while time.perf_counter() <= stime + 1:
+        try:
+            if not ser_in.is_open:
+                print("Serial input port not open. Skipping data read.")
+                break
 
-        data = ser_in.readline().rstrip().decode('utf-8')
-        ser_in.flush()
-        dt = round(time.perf_counter()-tCurrent, 4)  # current time variable
-        print(dt, ' , 0 , ', data, flush=True)
-        with open(outfile, 'a') as f:
-            line = [str(dt), '0', data]
-            f.write(','.join(line)+'\n')
-            f.flush()
+            data = ser_in.readline().rstrip().decode('utf-8').strip()
+            ser_in.flush()
 
-    ser_out.close()
-    ser_in.reset_input_buffer()  # Flush input buffer, discarding
-    # all it’s contents.
-    ser_in.reset_output_buffer()  # Clear output buffer, aborting the
-    ser_in.close()  # current output and discarding
-    # all that is in the buffer.
-   # power_s.close()
+            dt = round(time.perf_counter() - tCurrent, 4)
+            print(dt, ' , 0 , ', data, flush=True)
 
-    print('shutdown')
+            with open(outfile, 'a') as f:
+                line = [str(dt), '0', data]
+                f.write(','.join(line) + '\n')
+                f.flush()
 
-    _plot()  # sends data to plot function
+        except Exception as e:
+            print(f"Error during shutdown data collection: {e}")
+            break
 
-    shutil.copy(outfile, stamp)  # move file to date directory
-    print(outfile)
+    # Safe closing of serial ports
+    try:
+        if ser_out.is_open:
+            ser_out.close()
+    except Exception as e:
+        print(f"Error closing ser_out: {e}")
+
+    try:
+        if ser_in.is_open:
+            ser_in.reset_input_buffer()
+            ser_in.reset_output_buffer()
+            ser_in.close()
+    except Exception as e:
+        print(f"Error closing ser_in: {e}")
+
+    print("Shutdown complete. Generating plot...")
+
+    try:
+        _plot()  # send data to plot function
+        shutil.copy(outfile, stamp)  # move file to date directory
+        print(f"Output file saved: {outfile}")
+    except Exception as e:
+        print(f"Error during plot or file copy: {e}")
+
     winsound.Beep(500, 5000)
 
 
 def _plot():  # function to make and save plots at the end
-
     plt.rcParams['figure.figsize'] = [13, 7]
     plt.rcParams.update({'font.size': 18})
 
@@ -108,67 +151,76 @@ def _plot():  # function to make and save plots at the end
     mx_index_voltage = df.voltage.idxmax()
     mxvoltage = df.voltage[mx_index_voltage]
 
-    figure_out = 'wafer_' + wafer + '_chip_' + str(chip) + '_' + stamp+'.png'
+    figure_out = 'wafer_' + wafer + '_chip_' + str(chip) + '_' + stamp + '.png'
 
-    ##
     fig, ax1 = plt.subplots()
 
     # Main plot
-
-    ax1.plot(df.time.values, (df.current.values) *
-             1E9,  color='red', lw=0.5, alpha=0.9)
+    ax1.plot(df.time.values, df.current.values * 1E9, color='red', lw=0.5, alpha=0.9)
     ax1.set_ylabel('Current (nA)', fontsize=22, labelpad=10)
-
     ax1.xaxis.set_minor_locator(MultipleLocator(5))
-
     ax1.set_xlabel('Time (s)', fontsize=22, labelpad=10)
     ax1.tick_params(which='both', axis='x', direction='in')
     ax1.tick_params(axis='y', direction='in')
 
     # Inset Plot
-
     axins = inset_axes(ax1, loc=2, width='40%', height='55%', borderpad=1)
-    axins.plot(df.time.values, (df.current.values)*1E9,  'r.-', lw=1)
-    axins.tick_params(labelright=True, labelbottom=True,
-                      labelleft=False, labelsize=12)
+    axins.plot(df.time.values, df.current.values * 1E9, 'r.-', lw=1)
+    axins.tick_params(labelright=True, labelbottom=True, labelleft=False, labelsize=12)
     axins.tick_params(which='both', axis='both', direction='in')
-
     axins.xaxis.set_minor_locator(MultipleLocator(0.01))
     axins.xaxis.grid(True, which='both')
     axins.yaxis.grid(True, which='major')
+    plt.axhline(y=(tresh * 1E9), color='blue', linestyle='dotted')
 
-    plt.axhline(y=(tresh*1E9), color='blue', linestyle='dotted')
+    try:
+        axins.set_xlim(df.time.iloc[-1] - 1.2, df.time.iloc[-1] - 0.7)
+    except Exception as e:
+        print(f"Warning: Failed to set inset x-limits: {e}")
 
-    axins.set_xlim(df.time.iloc[-1]-1.2, df.time.iloc[-1]-0.7)########
-
-    # 2nd main top x axis
+    # 2nd top x-axis (Voltage)
     ax2 = ax1.twiny()
 
     vmin = df.voltage.iloc[0]
     vmax = df.voltage.max()
-    steps = (vmax-vmin)/len(df.current)
-    x2 = np.arange(vmin, vmax, steps)
 
-    ax2.plot(x2, (df.current.values)*1E9, lw=0)
+    valid_x2 = True
+    if len(df.current) == 0 or pd.isna(vmin) or pd.isna(vmax) or vmax == vmin:
+        print("Warning: Invalid values for voltage range or current length.")
+        valid_x2 = False
+    else:
+        steps = (vmax - vmin) / len(df.current)
+        if steps <= 0 or np.isnan(steps) or np.isinf(steps):
+            print("Warning: Invalid step size for voltage range.")
+            valid_x2 = False
+
+    if valid_x2:
+        x2 = np.arange(vmin, vmax, steps)
+        y2 = df.current.values * 1E9
+        if len(x2) == len(y2):
+            ax2.plot(x2, y2, lw=0)
+        else:
+            print("Warning: Skipping voltage axis plot due to length mismatch.")
+    else:
+        print("Skipping voltage axis plot due to bad input.")
+
     ax2.set_xlabel('Voltage (V)', fontsize=22, labelpad=10)
-
     ax2.tick_params(which='both', axis='x', direction='in')
     ax2.tick_params(axis='y', direction='in')
     ax2.ticklabel_format(style='plain')
 
     plt.text(0.5, 0.9, 'Max current (nA) =', horizontalalignment='left',
              verticalalignment='center', transform=ax1.transAxes)
-    plt.text(0.76, 0.9, round(mx_current*1E9, 1), horizontalalignment='left',
+    plt.text(0.76, 0.9, round(mx_current * 1E9, 1), horizontalalignment='left',
              verticalalignment='center', transform=ax1.transAxes)
     plt.text(0.5, 0.85, 'at', horizontalalignment='left',
              verticalalignment='center', transform=ax1.transAxes)
-    plt.text(0.54, 0.85, mxvoltage, horizontalalignment='left',
+    plt.text(0.54, 0.85, f'{mxvoltage:.2f}', horizontalalignment='left',
              verticalalignment='center', transform=ax1.transAxes)
     plt.text(0.60, 0.85, 'V', horizontalalignment='left',
              verticalalignment='center', transform=ax1.transAxes)
 
     plt.title(outfile, fontsize=24, pad=35)
-    # fig.tight_layout()
     plt.savefig(figure_out)
     plt.show()
 
